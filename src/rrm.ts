@@ -82,7 +82,9 @@ client.on("message", async msg => {
 
                 getforcewords(msg.author.id).push(word);
                 await msg.reply(
-                    "ok ill force that word next time you do randomword. also btw I took away 10 trophies from you, you have " +
+                    "ok ill force that word next time you do randomword. also btw I took away " +
+                        forcewordCost +
+                        " trophies from you, you have " +
                         trophyprint(trophies) +
                         " now.",
                     msgopts
