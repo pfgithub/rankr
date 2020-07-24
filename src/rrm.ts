@@ -177,9 +177,7 @@ client.on("message", async msg => {
     if (msg.channel.parent?.id !== channelIDs.activeTicketsCategory) return; // wrong channel nope
     await getChannel(channelIDs.transcripts).send(
         msg.author.toString() + ": " + msg.content,
-        msg.embeds[0]
-            ? Object.assign({ embeds: msg.embeds[0] }, msgopts)
-            : msgopts
+        msg.embeds[0] ? { embed: msg.embeds[0], ...msgopts } : msgopts
     );
     for (let atchmnt of msg.attachments) {
         await getChannel(channelIDs.transcripts).send(
