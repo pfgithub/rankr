@@ -9,7 +9,8 @@ client.login(secret.token);
 
 const channelIDs = {
     activeTicketsCategory: "735251571260260414",
-    transcripts: "735969996773261404"
+    transcripts: "735969996773261404",
+    ticketmakr: "735250354450464808"
 };
 
 function getChannel(chid: string): discord.TextChannel {
@@ -22,7 +23,7 @@ const msgopts: discord.MessageOptions = {
 client.on("ready", async () => {
     console.log("started");
     try {
-        let [rschanid, rsmsgid] = (
+        let [rschanid, rsmsgid, dstnc] = (
             await fs.readFile("__restarting", "utf-8")
         ).split("|");
         await fs.unlink("__restarting");
@@ -30,7 +31,14 @@ client.on("ready", async () => {
             rschanid
         )) as discord.TextChannel;
         let msg = await chan.messages.fetch(rsmsgid);
-        await chan.send("yay im back");
+        let timecount = new Date().getTime() - +dstnc;
+        let timemsg: string;
+        if (timecount < 10_000) {
+            timemsg = "";
+        } else {
+            timemsg = ". sorry it took a while. i think there was an error :(";
+        }
+        await chan.send("yay im back" + timemsg);
         await msg.delete();
     } catch {}
 });
@@ -49,7 +57,7 @@ client.on("message", async msg => {
                 );
                 await fs.writeFile(
                     "__restarting",
-                    msg.channel + "|" + msgsnt.id
+                    msg.channel + "|" + msgsnt.id + "|" + new Date().getTime()
                 );
                 process.exit(0);
             } else {
@@ -57,7 +65,11 @@ client.on("message", async msg => {
             }
             return;
         }
-        await msg.reply("dont at me im busy");
+        let atcount = msg.content.split(client.user!.id).length - 1;
+        await msg.reply(
+            "dont at me im busy" + new Array(atcount).fill(" >:(").join("")
+        );
+        return;
     }
     if (msg.channel.parent?.id !== channelIDs.activeTicketsCategory) return; // wrong channel nope
     await getChannel(channelIDs.transcripts).send(
@@ -75,6 +87,8 @@ client.on("message", async msg => {
 });
 
 client.on("messageReactionAdd", async (rxn, usr) => {
+    if (rxn.message.channel.id === channelIDs.ticketmakr) {
+    }
     console.log(rxn, usr);
 });
 
