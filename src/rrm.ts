@@ -127,6 +127,7 @@ client.on("message", async msg => {
             );
             let guessed = false;
             collectr.on("end", async () => {
+                if (guessed) return;
                 await msg.channel.send(
                     "y'all'r too slow type faster next time :)",
                     msgopts
