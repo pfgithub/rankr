@@ -53,6 +53,11 @@ client.on("ready", async () => {
     } catch {}
 });
 
+function trophyprint(count: number) {
+    if (count === 0) return "0";
+    return "🏆".repeat(count);
+}
+
 client.on("message", async msg => {
     if (msg.partial) await msg.fetch();
     if (msg.channel.type === "dm") {
@@ -69,7 +74,7 @@ client.on("message", async msg => {
                             "you need " +
                                 forcewordCost +
                                 " trophies but you only have " +
-                                ("🏆".repeat(trophies) || "0")
+                                trophyprint(trophies)
                         );
                     trophies -= forcewordCost;
                     localtrophycount[msg.author.id] = trophies;
@@ -78,7 +83,7 @@ client.on("message", async msg => {
                 getforcewords(msg.author.id).push(word);
                 await msg.reply(
                     "ok ill force that word next time you do randomword. also btw I took away 10 trophies from you, you have " +
-                        ("🏆".repeat(trophies) || "no trophies") +
+                        trophyprint(trophies) +
                         " now.",
                     msgopts
                 );
@@ -125,16 +130,22 @@ client.on("message", async msg => {
                 m => m.content.toLowerCase() === rword.toLowerCase(),
                 { time: 10_000 }
             );
+            msg.channel.startTyping();
             let guessed = false;
             collectr.on("end", async () => {
                 if (guessed) return;
+                msg.channel.stopTyping();
+                let mytrphies = (localtrophycount[client.user!.id] || 0) + 1;
+                localtrophycount[client.user!.id] = mytrphies;
+                await msg.channel.send(rword, msgopts);
                 await msg.channel.send(
-                    "y'all'r too slow type faster next time :)",
-                    msgopts
+                    "ha! i win\ny'all'r too slow type faster next time :)\nmy trophy collection: " +
+                        trophyprint(mytrphies)
                 );
             });
             collectr.on("collect", async msg_ => {
                 const msg = msg_ as discord.Message;
+                msg.channel.stopTyping();
                 guessed = true;
                 collectr.stop();
                 let time = new Date().getTime() - start;
@@ -148,7 +159,7 @@ client.on("message", async msg => {
                         time +
                         "ms." +
                         (tc > 1
-                            ? "\nyour trophies this session: " + "🏆".repeat(tc)
+                            ? "\nyour trophies this session: " + trophyprint(tc)
                             : " here is your prize: 🏆")
                 );
                 await msg.react("🏆");
