@@ -22,6 +22,13 @@ const msgopts: discord.MessageOptions = {
 };
 
 let localtrophycount: { [key: string]: number } = {};
+let forcewords: { [key: string]: string[] } = {};
+const forcewordCost = 5;
+
+function getforcewords(userid: string) {
+    if (!forcewords[userid]) forcewords[userid] = [];
+    return forcewords[userid];
+}
 
 client.on("ready", async () => {
     console.log("started");
@@ -49,7 +56,34 @@ client.on("ready", async () => {
 client.on("message", async msg => {
     if (msg.partial) await msg.fetch();
     if (msg.channel.type === "dm") {
-        if (!msg.author.bot) await msg.reply("dont pm me :(");
+        if (!msg.author.bot) {
+            if (msg.content.startsWith("forceword ")) {
+                let word = msg.content.replace("forceword ", "");
+                if (word.length > 25)
+                    return await msg.reply("thats too long :(");
+
+                let trophies = localtrophycount[msg.author.id] || 0;
+                {
+                    if (trophies < forcewordCost)
+                        return await msg.reply(
+                            "you need 10 trophies but you only have " +
+                                ("🏆".repeat(trophies) || "0")
+                        );
+                    trophies -= forcewordCost;
+                    localtrophycount[msg.author.id] = trophies;
+                }
+
+                getforcewords(msg.author.id).push(word);
+                await msg.reply(
+                    "ok ill force that word next time you do randomword. also btw I took away 10 trophies from you, you have " +
+                        ("🏆".repeat(trophies) || "no trophies") +
+                        " now.",
+                    msgopts
+                );
+                return;
+            }
+            await msg.reply("dont pm me :(");
+        }
         return;
     }
     if (msg.content.includes(client.user!.id) && !msg.author.bot) {
@@ -69,7 +103,9 @@ client.on("message", async msg => {
             return;
         }
         if (msg.content.includes("randomword")) {
-            let rword = words[Math.floor(Math.random() * words.length)];
+            let rword =
+                getforcewords(msg.author.id).shift() ||
+                words[Math.floor(Math.random() * words.length)];
             await msg.channel.send("quick type the word", {
                 files: [
                     {
@@ -85,7 +121,7 @@ client.on("message", async msg => {
             const collectr = new discord.MessageCollector(
                 msg.channel as discord.TextChannel,
                 m => m.content.toLowerCase() === rword.toLowerCase(),
-                { time: 10000 }
+                { time: 10_000 }
             );
             collectr.on("collect", async msg_ => {
                 const msg = msg_ as discord.Message;
