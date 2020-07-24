@@ -107,7 +107,7 @@ async function* colectrgen(collryt: discord.MessageCollector) {
     collryt.once("end", () => (over = true));
     let msgs = game.oneway<discord.Message>();
     collryt.on("collect", msg => msgs.write(msg));
-    while (!over && !msgs.hasNext()) {
+    while (!over && msgs.hasNext()) {
         let msg = await msgs.read();
         yield msg;
     }
