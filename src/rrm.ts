@@ -21,6 +21,8 @@ const msgopts: discord.MessageOptions = {
     allowedMentions: { parse: [], roles: [], users: [] }
 };
 
+let localtrophycount: { [key: string]: number } = {};
+
 client.on("ready", async () => {
     console.log("started");
     try {
@@ -79,17 +81,28 @@ client.on("message", async msg => {
                 ],
                 ...msgopts
             });
+            const start = new Date().getTime();
             const collectr = new discord.MessageCollector(
                 msg.channel as discord.TextChannel,
                 m => m.content.toLowerCase() === rword.toLowerCase(),
                 { time: 10000 }
             );
-            collectr.on("collect", async msg => {
+            collectr.on("collect", async msg_ => {
+                const msg = msg_ as discord.Message;
                 collectr.stop();
+                let time = new Date().getTime() - start;
+                localtrophycount[msg.author.id] =
+                    (localtrophycount[msg.author.id] || 0) + 1;
+                let tc = localtrophycount[msg.author.id];
                 await msg.channel.send(
                     "yay " +
                         msg.author.toString() +
-                        ", you typed it first. here is your prize: 🏆"
+                        ", you typed it first in " +
+                        time +
+                        "ms." +
+                        (tc > 1
+                            ? "\nyour trophies this session: " + "🏆".repeat(tc)
+                            : " here is your prize: 🏆")
                 );
             });
             return;
