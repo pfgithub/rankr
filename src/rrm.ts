@@ -1,6 +1,7 @@
 import * as discord from "discord.js";
 import * as secret from "./secret.json";
 import { promises as fs } from "fs";
+const words = require("./words.json") as string[];
 
 const client = new discord.Client({
     partials: ["MESSAGE", "CHANNEL", "REACTION"]
@@ -63,6 +64,34 @@ client.on("message", async msg => {
             } else {
                 await msg.reply("no you dont have control over me >:[");
             }
+            return;
+        }
+        if (msg.content.includes("randomword")) {
+            let rword = words[Math.floor(Math.random() * words.length)];
+            await msg.reply("quick type the word", {
+                files: [
+                    {
+                        name: "type.png",
+                        attachment:
+                            "https://dummyimage.com/400x100/000/fff.png&text=" +
+                            rword
+                    }
+                ],
+                ...msgopts
+            });
+            const collectr = new discord.MessageCollector(
+                msg.channel as discord.TextChannel,
+                m => m.content.toLowerCase() === rword.toLowerCase(),
+                { time: 10000 }
+            );
+            collectr.on("collect", async msg => {
+                collectr.stop();
+                await msg.channel.send(
+                    "yay " +
+                        msg.author.toString() +
+                        ", you typed it first. here is your prize: 🏆"
+                );
+            });
             return;
         }
         let atcount = msg.content.split(client.user!.id).length - 1;
