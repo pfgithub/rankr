@@ -70,7 +70,7 @@ client.on("message", async msg => {
         }
         if (msg.content.includes("randomword")) {
             let rword = words[Math.floor(Math.random() * words.length)];
-            await msg.reply("quick type the word", {
+            await msg.channel.send("quick type the word", {
                 files: [
                     {
                         name: "type.png",
@@ -104,6 +104,7 @@ client.on("message", async msg => {
                             ? "\nyour trophies this session: " + "🏆".repeat(tc)
                             : " here is your prize: 🏆")
                 );
+                await msg.react("🏆");
             });
             return;
         }
