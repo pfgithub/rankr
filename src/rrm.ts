@@ -59,14 +59,16 @@ client.on("message", async msg => {
         if (!msg.author.bot) {
             if (msg.content.startsWith("forceword ")) {
                 let word = msg.content.replace("forceword ", "");
-                if (word.length > 25)
+                if (word.length > 40)
                     return await msg.reply("thats too long :(");
 
                 let trophies = localtrophycount[msg.author.id] || 0;
                 {
                     if (trophies < forcewordCost)
                         return await msg.reply(
-                            "you need 10 trophies but you only have " +
+                            "you need " +
+                                forcewordCost +
+                                " trophies but you only have " +
                                 ("🏆".repeat(trophies) || "0")
                         );
                     trophies -= forcewordCost;
@@ -123,8 +125,16 @@ client.on("message", async msg => {
                 m => m.content.toLowerCase() === rword.toLowerCase(),
                 { time: 10_000 }
             );
+            let guessed = false;
+            collectr.on("end", async () => {
+                await msg.channel.send(
+                    "y'all'r too slow type faster next time :)",
+                    msgopts
+                );
+            });
             collectr.on("collect", async msg_ => {
                 const msg = msg_ as discord.Message;
+                guessed = true;
                 collectr.stop();
                 let time = new Date().getTime() - start;
                 localtrophycount[msg.author.id] =
