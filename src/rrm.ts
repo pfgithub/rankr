@@ -121,7 +121,7 @@ client.on("message", async msg => {
                         name: "type.png",
                         attachment:
                             "https://dummyimage.com/400x100/000/fff.png&text=" +
-                            rword
+                            encodeURIComponent(rword)
                     }
                 ],
                 ...msgopts
