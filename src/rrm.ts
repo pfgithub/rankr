@@ -182,16 +182,27 @@ client.on("message", async msg => {
         );
         return;
     }
-    if (msg.channel.parent?.id !== channelIDs.activeTicketsCategory) return; // wrong channel nope
-    await getChannel(channelIDs.transcripts).send(
-        msg.author.toString() + ": " + msg.content,
-        msg.embeds[0] ? { embed: msg.embeds[0], ...msgopts } : msgopts
-    );
-    for (let atchmnt of msg.attachments) {
+    if (msg.channel.parent?.id === channelIDs.activeTicketsCategory) {
+        // log
         await getChannel(channelIDs.transcripts).send(
-            "Attachment: " + atchmnt[1].url,
-            msgopts
+            msg.author.toString() + ": " + msg.content,
+            msg.embeds[0] ? { embed: msg.embeds[0], ...msgopts } : msgopts
         );
+        for (let atchmnt of msg.attachments) {
+            await getChannel(channelIDs.transcripts).send(
+                "Attachment: " + atchmnt[1].url,
+                msgopts
+            );
+        }
+        // @ score verifiers maybe
+        if (!msg.author.bot && (msg.channel.topic || "").startsWith("~")) {
+            await msg.channel.setTopic(
+                (msg.channel.topic || "").replace("~", "+"),
+                "mention score verifiers"
+            );
+            await msg.channel.send("<@&407798614140780558>");
+        }
+        return;
     }
 });
 
@@ -227,11 +238,11 @@ client.on("messageReactionAdd", async (rxn, usr) => {
         let cre8tedchan = await cat.guild.channels.create(channelName, {
             parent: cat,
             permissionOverwrites: ncperms,
-            topic: usr.toString() + "'s rank request"
+            topic: "~ " + usr.toString() + "'s rank request"
         });
         let hedrmsg = await cre8tedchan.send(
             usr.toString() +
-                ", Send your proof screenshot/video here. For more information on what proof is need, check <#" +
+                ", Send your proof here. For more information on what ranks are available and what proof is need, check <#" +
                 channelIDs.ticketmakr +
                 ">."
         );
