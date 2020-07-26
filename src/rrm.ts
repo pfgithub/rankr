@@ -1,7 +1,7 @@
 import * as discord from "discord.js";
 import * as secret from "./secret.json";
 
-import {minecraftCommand} from "./minecraft";
+import { minecraftCommand } from "./minecraft";
 
 import { promises as fs } from "fs";
 const words = require("./words.json") as string[];
@@ -196,7 +196,51 @@ client.on("message", async msg => {
 });
 
 client.on("messageReactionAdd", async (rxn, usr) => {
-    if (rxn.message.channel.id === channelIDs.ticketmakr) {
+    if (usr.bot) return;
+    if (
+        (rxn.message.channel as discord.TextChannel).parent?.id ===
+            channelIDs.activeTicketsCategory &&
+        rxn.emoji.name === "🗑️"
+    ) {
+        await rxn.message.channel.delete("closed by " + usr.toString());
+        return;
+    }
+    if (
+        rxn.message.channel.id === channelIDs.ticketmakr &&
+        rxn.emoji.name === "❌"
+    ) {
+        let cat = (getChannel(
+            channelIDs.activeTicketsCategory
+        ) as any) as discord.CategoryChannel;
+        let ncperms: discord.OverwriteResolvable[] = cat.permissionOverwrites.array();
+        ncperms.push({ id: usr.id, allow: ["VIEW_CHANNEL"] });
+        let channelName = "ticket-" + usr.id;
+        let foundch = cat.guild.channels.cache.find(
+            ch => ch.name === channelName
+        ) as discord.TextChannel;
+        if (foundch) {
+            await foundch.send(
+                usr.toString() + ", Send your rank request proof here."
+            );
+            return;
+        }
+        let cre8tedchan = await cat.guild.channels.create(channelName, {
+            parent: cat,
+            permissionOverwrites: ncperms,
+            topic: usr.toString() + "'s rank request"
+        });
+        let hedrmsg = await cre8tedchan.send(
+            usr.toString() +
+                ", Send your proof screenshot/video here. For more information on what proof is need, check <#" +
+                channelIDs.ticketmakr +
+                ">."
+        );
+        await hedrmsg.react("🗑️");
+        // create ticket channel (rank-userid) if ! exists
+        // in that channel say please send proof. more information in #rank requests
+        // include a button to close the ticket. this button just deletes the channel, transcriptions are already copied to #text-transcripts
+        // after they send a message, @ score verifiers.
+        return;
     }
     console.log(rxn, usr);
 });
