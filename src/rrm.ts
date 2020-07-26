@@ -68,7 +68,8 @@ type Block = keyof typeof BlockEmojis;
 type Pos = [number, number];
 
 function mc_worldgen(): game.Board<Block> {
-    return game.newBoard<Block>(7, 7, (_x, y) => {
+    return game.newBoard<Block>(7, 7, (x, y) => {
+        if(x > 4) y -= 1;
         if (y > 4) return "stone";
         if (y > 2) return "dirt";
         if (y > 1) return "grass";
@@ -107,7 +108,7 @@ async function* colectrgen(collryt: discord.MessageCollector) {
     collryt.once("end", () => (over = true));
     let msgs = game.oneway<discord.Message>();
     collryt.on("collect", msg => msgs.write(msg));
-    while (!over && msgs.hasNext()) {
+    while (!over || msgs.hasNext()) {
         let msg = await msgs.read();
         yield msg;
     }
@@ -160,7 +161,6 @@ async function minecraftCommand(msg: discord.Message) {
         if (dirs[message.content]) {
             await message.delete();
             mc_moveplayer(mc, dirs[message.content]);
-
             mc_gravity(mc);
             await game.edit(mc_boardrender(mc));
         }
@@ -222,6 +222,7 @@ client.on("message", async msg => {
         }
         if (msg.content.includes("minecraft")) {
             await minecraftCommand(msg);
+            //return await msg.reply("not implemented yet sorry :(");
             return;
         }
         if (msg.content.includes("randomword")) {
