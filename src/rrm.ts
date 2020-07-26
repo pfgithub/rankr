@@ -218,7 +218,7 @@ client.on("messageReactionAdd", async (rxn, usr) => {
     }
     if (
         rxn.message.channel.id === channelIDs.ticketmakr &&
-        rxn.emoji.name === "❌"
+        rxn.emoji.name === "📩"
     ) {
         let cat = (getChannel(
             channelIDs.activeTicketsCategory
@@ -247,10 +247,13 @@ client.on("messageReactionAdd", async (rxn, usr) => {
                 ">."
         );
         await hedrmsg.react("🗑️");
-        // create ticket channel (rank-userid) if ! exists
-        // in that channel say please send proof. more information in #rank requests
-        // include a button to close the ticket. this button just deletes the channel, transcriptions are already copied to #text-transcripts
-        // after they send a message, @ score verifiers.
+        setTimeout(async () => {
+            if ((cre8tedchan.topic || "").startsWith("~")) {
+                await cre8tedchan.send(
+                    "1 hour inactivity TODO close channel automatically"
+                );
+            }
+        }, 60 * 60 * 1000);
         return;
     }
     console.log(rxn, usr);
