@@ -501,7 +501,7 @@ async function createTicket(creator: discord.User | discord.PartialUser) {
     ) as any) as discord.CategoryChannel;
     let ncperms: discord.OverwriteResolvable[] = cat.permissionOverwrites.array();
     ncperms.push({ id: creator.id, allow: ["VIEW_CHANNEL"] });
-    let channelName = "ticket-" + creator.id;
+    let channelName = "rank-" + creator.id;
     let foundch = cat.guild.channels.cache.find(
         ch => ch.name === channelName
     ) as discord.TextChannel;
