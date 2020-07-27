@@ -206,6 +206,21 @@ client.on("message", async msg => {
     }
 });
 
+async function closeTicket(
+    channel: discord.TextChannel,
+    closer: discord.User | discord.PartialUser
+) {
+    await channel.send(
+        "Ticket closed by " +
+            closer.toString() +
+            ". This channel will be deleted in 60 seconds.\n" +
+            "⎯".repeat(30),
+        msgopts
+    );
+    await new Promise(r => setTimeout(r, 60 * 1000));
+    await channel.delete("closed by " + closer.toString());
+}
+
 client.on("messageReactionAdd", async (rxn, usr) => {
     if (usr.bot) return;
     if (
@@ -213,13 +228,17 @@ client.on("messageReactionAdd", async (rxn, usr) => {
             channelIDs.activeTicketsCategory &&
         rxn.emoji.name === "🗑️"
     ) {
-        await rxn.message.channel.delete("closed by " + usr.toString());
+        await closeTicket(rxn.message.channel as discord.TextChannel, usr);
         return;
     }
-    if (
-        rxn.message.channel.id === channelIDs.ticketmakr &&
-        rxn.emoji.name === "📩"
-    ) {
+    if (rxn.message.channel.id === channelIDs.ticketmakr) {
+        if (rxn.partial) await rxn.fetch();
+        if ((rxn.count || 100) <= 1) {
+            await rxn.message.react(rxn.emoji);
+            await rxn.users.remove(usr.id);
+            return;
+        }
+        await rxn.users.remove(usr.id);
         let cat = (getChannel(
             channelIDs.activeTicketsCategory
         ) as any) as discord.CategoryChannel;
@@ -248,10 +267,10 @@ client.on("messageReactionAdd", async (rxn, usr) => {
         );
         await hedrmsg.react("🗑️");
         setTimeout(async () => {
+            if (cre8tedchan.deleted) return;
             if ((cre8tedchan.topic || "").startsWith("~")) {
-                await cre8tedchan.send(
-                    "1 hour inactivity TODO close channel automatically"
-                );
+                await cre8tedchan.send("1 hour inactivity");
+                await closeTicket(cre8tedchan, usr);
             }
         }, 60 * 60 * 1000);
         return;
