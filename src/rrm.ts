@@ -1,9 +1,35 @@
 import * as discord from "discord.js";
 import * as secret from "./secret.json";
+import htmlMinifier from "html-minifier";
+//@ts-ignore
+import discordMarkdownAny from "discord-markdown";
+type DiscordMarkdownOptions = {
+    /// Boolean (default: false), if it should parse embed contents (rules are slightly different)
+    embed?: boolean;
+    /// Boolean (default: true), if it should escape HTML
+    escapeHTML?: boolean;
+    /// Boolean (default: false), if it should only parse the discord-specific stuff
+    discordOnly?: boolean;
+    /// Object, callbacks used for discord parsing. Each receive an object with different properties, and are expected to return an HTML escaped string
+    discordCallback?: {
+        user?: (id: { id: string }) => string;
+        channel?: (id: { id: string }) => string;
+        role?: (id: { id: string }) => string;
+        emoji?: (animated: boolean, name: string, id: string) => string;
+        everyone?: () => string;
+        here?: () => string;
+    };
+    /// Object, maps CSS class names to CSS module class names
+    cssModuleNames?: object;
+};
+const discordMarkdown = discordMarkdownAny as {
+    toHTML: (dsmd: string, options?: DiscordMarkdownOptions) => string;
+};
 
 import { minecraftCommand } from "./minecraft";
 
 import { promises as fs } from "fs";
+import * as fsync from "fs";
 const words = require("./words.json") as string[];
 
 const client = new discord.Client({
@@ -15,7 +41,8 @@ const channelIDs = {
     activeTicketsCategory: "735251571260260414",
     transcripts: "735969996773261404",
     ticketmakr: "735250354450464808",
-    ticketLogs: "735251434836197476"
+    ticketLogs: "735251434836197476",
+    logfiles: "735250062635958323"
 };
 
 function getChannel(chid: string): discord.TextChannel {
@@ -120,6 +147,14 @@ client.on("message", async msg => {
             //return await msg.reply("not implemented yet sorry :(");
             return;
         }
+        if (msg.content.includes("channellogtest")) {
+            await sendChannelLog(
+                "NOID",
+                msg.channel as any,
+                msg.channel as any
+            );
+            return;
+        }
         if (msg.content.includes("randomword")) {
             let rword =
                 getforcewords(msg.author.id).shift() ||
@@ -220,6 +255,208 @@ function ticketOwnerID(channel: discord.TextChannel): string {
     return creatorid;
 }
 
+function raw(string: TemplateStringsArray | string) {
+    return { __raw: `${string.toString()}` };
+}
+
+function templateGenerator<InType>(helper: (str: InType) => string) {
+    type ValueArrayType = (InType | string | { __raw: string })[];
+    return (
+        strings: TemplateStringsArray | InType,
+        ...values: ValueArrayType
+    ) => {
+        if (!(strings as TemplateStringsArray).raw && !Array.isArray(strings)) {
+            return helper(strings as InType);
+        }
+        const result: ValueArrayType = [];
+        (strings as TemplateStringsArray).forEach((str, i) => {
+            result.push(raw(str), values[i] || "");
+        });
+        return result
+            .map(el =>
+                typeof (el as { __raw: string }).__raw === "string"
+                    ? (el as { __raw: string }).__raw
+                    : helper(el as InType)
+            )
+            .join("");
+    };
+}
+
+function escapeHTML(html: string) {
+    return html
+        .split("&")
+        .join("&amp;")
+        .split('"')
+        .join("&quot;")
+        .split("<")
+        .join("&lt;")
+        .split(">")
+        .join("&gt;");
+}
+const safehtml = templateGenerator((v: string) => escapeHTML(v));
+const verifiedbotsvg = safehtml`
+    <svg aria-label="Verified Bot" class="botcheck" aria-hidden="false" width="16" height="16" viewBox="0 0 16 15.2">
+        <path d="M7.4,11.17,4,8.62,5,7.26l2,1.53L10.64,4l1.36,1Z" fill="currentColor"></path>
+    </svg>`;
+
+/*
+
+    user?: (id: string) => string;
+    channel?: (id: string) => string;
+    role?: (id: string) => string;
+    emoji?: (animated: boolean, name: string, id: string) => string;
+    everyone?: () => string;
+    here?: () => string;
+*/
+
+function genLogOneMessage(msg: discord.Message) {
+    let bottag = msg.author.bot
+        ? safehtml`<span class="bottag">${raw(verifiedbotsvg)}BOT</span>`
+        : "";
+
+    let msgContentSafe = discordMarkdown.toHTML(msg.content, {
+        discordOnly: false,
+        discordCallback: {
+            user: ({ id }) => {
+                let usrinfo = msg.guild!.members.resolve(id);
+                if (usrinfo) {
+                    let usrtag =
+                        usrinfo.user.username +
+                        "#" +
+                        usrinfo.user.discriminator;
+                    return safehtml`<span class="tag" data-id="${id}"
+                    title="${usrtag}">
+                        @${usrinfo.displayName}
+                    </span>`;
+                } else
+                    return safehtml`<span class="tag">${"<@!" +
+                        id +
+                        ">"}</span>`;
+            },
+            channel: ({ id }) => {
+                let chaninfo = msg.guild!.channels.resolve(id);
+                if (chaninfo)
+                    return safehtml`<span class="tag" data-id="${id}">#${chaninfo.name}</span>`;
+                else
+                    return safehtml`<span class="tag">${"<#" +
+                        id +
+                        ">"}</span>`;
+            },
+            role: ({ id }) => {
+                let roleinfo = msg.guild!.roles.resolve(id);
+                if (roleinfo) {
+                    let roleColor = roleinfo.hexColor;
+                    if (roleColor === "#000000") roleColor = "undefined as any";
+                    return safehtml`<span data-id="${id}" style="color: ${roleColor}">@${roleinfo.name}</span>`;
+                } else
+                    return safehtml`<span class="tag">${"<@&" +
+                        id +
+                        ">"}</span>`;
+            }
+        }
+    });
+
+    let memberColor = msg.member!.displayHexColor;
+    if (memberColor === "#000000") memberColor = "undefined as any";
+    let authorign = msg.author.username + "#" + msg.author.discriminator;
+    return {
+        top: safehtml`<div class="message">
+            <img class="profile" src="${msg.author.displayAvatarURL({
+                dynamic: true,
+                size: 64
+            })}" />
+            <div class="author" style="color: ${memberColor}"
+            title="${authorign}" data-id="${msg.author.id}">
+                ${msg.member!.displayName} ${raw(bottag)}</div>
+            <div class="msgcontent">`,
+        center: msgContentSafe,
+        bottom: safehtml`</div>
+    </div>`
+    };
+}
+
+const docTemplate = fsync
+    .readFileSync("docgen/template.html", "utf-8")
+    .replace(
+        "{html|stylesheet}",
+        "<style>" + fsync.readFileSync("docgen/style.css", "utf-8") + "</style>"
+    );
+
+function genLogMayError(messages: discord.Message[]) {
+    // return "TODO";
+    let messagesListA = messages
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+        .map(msg => {
+            try {
+                return genLogOneMessage(msg);
+            } catch (e) {
+                console.log(e);
+                return {
+                    top: safehtml`<div class="message">`,
+                    center: safehtml`error! ${e.toString()}`,
+                    bottom: safehtml`</div>`
+                };
+            }
+        });
+
+    let messagesListB: { top: string; center: string; bottom: string }[] = [];
+    for (let msg of messagesListA) {
+        let latest = messagesListB[messagesListB.length - 1] || {
+            top: "",
+            center: "",
+            bottom: ""
+        };
+        if (msg.top === latest.top && msg.bottom === latest.bottom)
+            latest.center += "<br />" + msg.center;
+        else messagesListB.push(msg);
+    }
+    let messagesListSafe = messagesListB
+        .map(msg => msg.top + msg.center + msg.bottom)
+        .join("\n");
+
+    // fsync.writeFileSync("___DELETE.html", messagesListSafe, "utf-8");
+    return htmlMinifier.minify(
+        docTemplate
+            .replace("{html|navbar}", "")
+            .replace("{html|content}", messagesListSafe)
+            .replace("{html|sidebar}", "")
+            .replace("{html|pagetitle}", "log")
+            .replace("{html|pagetitle}", "log")
+    );
+}
+
+function genLog(messages: discord.Message[]) {
+    try {
+        return genLogMayError(messages);
+    } catch (e) {
+        return `uh oh the log couldn't be generated :(`;
+    }
+}
+
+async function sendChannelLog(
+    ticketOwnerID: string,
+    channel: discord.TextChannel,
+    sendTo: discord.TextChannel
+) {
+    sendTo.startTyping();
+    let lastMessages = await channel.messages.fetch({ limit: 100 }, false);
+    let logtext = genLog(lastMessages.array());
+    let logMsg = await sendTo.send("<@" + ticketOwnerID + ">'s '", {
+        ...msgopts,
+        files: [
+            {
+                name: "log.html",
+                attachment: Buffer.from(logtext)
+            }
+        ]
+    });
+    sendTo.stopTyping();
+    await logMsg.edit(
+        "https://tickettool.xyz/direct?url=" +
+            encodeURIComponent(logMsg.attachments.array()[0].url)
+    );
+}
+
 async function closeTicket(
     channel: discord.TextChannel,
     closer: discord.User | discord.PartialUser,
@@ -240,15 +477,17 @@ async function closeTicket(
             "⎯".repeat(30),
         msgopts
     );
-    // fetch last 1000 messages
-    // make html page
-    // save in #transcripts (735250062635958323)
-    // link in closed message below
-    // https://tickettool.xyz/direct?url=UPLOADEDFILELINK
+
     await ticketLog(
         ticketOwnerID(channel),
         "Closed by " + closer.toString() + forinactive,
         "red"
+    );
+
+    await sendChannelLog(
+        ticketOwnerID(channel),
+        channel,
+        getChannel(channelIDs.logfiles)
     );
 
     await new Promise(r => setTimeout(r, 60 * 1000));
