@@ -14,7 +14,8 @@ client.login(secret.token);
 const channelIDs = {
     activeTicketsCategory: "735251571260260414",
     transcripts: "735969996773261404",
-    ticketmakr: "735250354450464808"
+    ticketmakr: "735250354450464808",
+    ticketLogs: "735251434836197476"
 };
 
 function getChannel(chid: string): discord.TextChannel {
@@ -217,6 +218,7 @@ async function closeTicket(
             "⎯".repeat(30),
         msgopts
     );
+    await ticketLog(closer, "Closed ticked", "red");
     await new Promise(r => setTimeout(r, 60 * 1000));
     await channel.delete("closed by " + closer.toString());
 }
@@ -256,6 +258,29 @@ async function createTicket(creator: discord.User | discord.PartialUser) {
             await closeTicket(cre8tedchan, creator);
         }
     }, 60 * 60 * 1000);
+
+    await ticketLog(creator, "Created ticket", "green");
+}
+
+const colors = { green: 3066993, red: 15158332 };
+
+async function ticketLog(
+    actioner_: discord.User | discord.PartialUser,
+    message: string,
+    color: keyof typeof colors
+) {
+    if (actioner_.partial) await actioner_.fetch();
+    let actioner = actioner_ as discord.User;
+
+    let logsChannel = getChannel(channelIDs.ticketLogs);
+    let logEmbed = new discord.MessageEmbed();
+    logEmbed.author = {
+        name: actioner.username + "#" + actioner.discriminator,
+        iconURL: actioner.displayAvatarURL({ dynamic: true, size: 32 })
+    };
+    logEmbed.color = colors[color];
+    logEmbed.description = message;
+    await logsChannel.send("", logEmbed);
 }
 
 client.on("messageReactionAdd", async (rxn, usr) => {
