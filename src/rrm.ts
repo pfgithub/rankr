@@ -408,7 +408,7 @@ function genLogOneMessage(msg: discord.Message) {
     }
     let attachmentsText = attachments.length ? attachments.join("") : "";
 
-    let memberColor = msg.member!.displayHexColor;
+    let memberColor = msg.member?.displayHexColor || "#000000";
     if (memberColor === "#000000") memberColor = "undefined as any";
     let authorign = msg.author.username + "#" + msg.author.discriminator;
     return {
@@ -419,7 +419,7 @@ function genLogOneMessage(msg: discord.Message) {
             })}"
             /><div class="author" style="color: ${memberColor}"
             title="${authorign}" data-id="${msg.author.id}">
-                ${msg.member!.displayName} ${raw(bottag)}</div
+                ${msg.member?.displayName || authorign} ${raw(bottag)}</div
             ><div class="msgcontent">`,
         center: msgContentSafe + embedsText + attachmentsText + reactionsText,
         bottom: safehtml`</div></div>`
@@ -497,7 +497,7 @@ async function sendChannelLogMayError(
     for (let lmsg of lastMessages) {
         if (lmsg.partial) await lmsg.fetch();
         if (lmsg.author.partial) await lmsg.author.fetch();
-        if (lmsg.member!.partial) await lmsg.author.fetch();
+        if (lmsg.member?.partial) await lmsg.author.fetch();
     }
     let logtext = genLogMayError(lastMessages);
     let logMsg = await sendTo.send("<@" + ticketOwnerID + ">'s '", {
