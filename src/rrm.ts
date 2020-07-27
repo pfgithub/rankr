@@ -186,7 +186,12 @@ client.on("message", async msg => {
     if (msg.channel.parent?.id === channelIDs.activeTicketsCategory) {
         // log
         await getChannel(channelIDs.transcripts).send(
-            msg.author.toString() + ": " + msg.content,
+            "<@" +
+                ticketOwnerID(msg.channel as discord.TextChannel) +
+                ">'s ticket: [" +
+                msg.author.toString() +
+                "]: " +
+                msg.content,
             msg.embeds[0] ? { embed: msg.embeds[0], ...msgopts } : msgopts
         );
         for (let atchmnt of msg.attachments) {
@@ -207,6 +212,14 @@ client.on("message", async msg => {
     }
 });
 
+function ticketOwnerID(channel: discord.TextChannel): string {
+    let creatorid = ((channel.topic || "").match(/<@!?([0-9]+?)>/) || [
+        "",
+        "ERNOID"
+    ])[1];
+    return creatorid;
+}
+
 async function closeTicket(
     channel: discord.TextChannel,
     closer: discord.User | discord.PartialUser,
@@ -219,10 +232,6 @@ async function closeTicket(
     await channel.setName("closing-" + channel.name);
 
     let forinactive = inactivity ? " for inactivity" : "";
-    let creatorid = ((channel.topic || "").match(/<@!?([0-9]+?)>/) || [
-        "",
-        "ERNOID"
-    ])[1];
     await channel.send(
         "Ticket closed by " +
             closer.toString() +
@@ -237,7 +246,7 @@ async function closeTicket(
     // link in closed message below
     // https://tickettool.xyz/direct?url=UPLOADEDFILELINK
     await ticketLog(
-        creatorid,
+        ticketOwnerID(channel),
         "Closed by " + closer.toString() + forinactive,
         "red"
     );
