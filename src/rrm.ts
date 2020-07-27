@@ -401,7 +401,7 @@ function genLogOneMessage(msg: discord.Message) {
             continue;
         }
         attachments.push(
-            safehtml`<div>[attachment] <a href="${
+            safehtml`<div>[attachment, ${"" + attachment.size}b] <a href="${
                 attachment.url
             }">${attachment.name || "ATCHMNT"}</a></div>`
         );
@@ -443,8 +443,9 @@ function genLogMayError(messages: discord.Message[]) {
             } catch (e) {
                 console.log(e);
                 return {
-                    top: safehtml`<div class="message">`,
-                    center: safehtml`error! ${e.toString()}`,
+                    top: safehtml`<div class="msgerr">`,
+                    center: safehtml`<pre><code>${e.toString()}${"\n" +
+                        e.stack}</code></pre>`,
                     bottom: safehtml`</div>`
                 };
             }
@@ -484,14 +485,21 @@ function genLog(messages: discord.Message[]) {
     }
 }
 
-async function sendChannelLog(
+async function sendChannelLogMayError(
     ticketOwnerID: string,
     channel: discord.TextChannel,
     sendTo: discord.TextChannel
 ) {
     sendTo.startTyping();
-    let lastMessages = await channel.messages.fetch({ limit: 100 }, false);
-    let logtext = genLog(lastMessages.array());
+    let lastMessages = (
+        await channel.messages.fetch({ limit: 100 }, false)
+    ).array();
+    for (let lmsg of lastMessages) {
+        if (lmsg.partial) await lmsg.fetch();
+        if (lmsg.author.partial) await lmsg.author.fetch();
+        if (lmsg.member!.partial) await lmsg.author.fetch();
+    }
+    let logtext = genLogMayError(lastMessages);
     let logMsg = await sendTo.send("<@" + ticketOwnerID + ">'s '", {
         ...msgopts,
         files: [
@@ -505,6 +513,21 @@ async function sendChannelLog(
     await logMsg.edit(
         "https://pfg.pw/rankr/view?page=" + logMsg.attachments.array()[0].url
     );
+}
+async function sendChannelLog(
+    ticketOwnerID: string,
+    channel: discord.TextChannel,
+    sendTo: discord.TextChannel
+) {
+    try {
+        await sendChannelLogMayError(ticketOwnerID, channel, sendTo);
+    } catch (e_) {
+        let e = e_ as Error;
+        sendTo.stopTyping();
+        await sendTo.send(
+            ":x: Uh oh error\n```\n" + e.toString() + "\n" + e.stack + "\n```"
+        );
+    }
 }
 
 async function closeTicket(
