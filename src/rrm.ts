@@ -214,6 +214,9 @@ async function closeTicket(
 ) {
     if (channel.deleted) return;
     if ((channel as any).__IS_CLOSING) return;
+    (channel as any).__IS_CLOSING = true;
+
+    await channel.setName("closing-" + channel.name);
 
     let forinactive = inactivity ? " for inactivity" : "";
     let creatorid = ((channel.topic || "").match(/<@!?([0-9]+?)>/) || [
@@ -239,7 +242,6 @@ async function closeTicket(
         "red"
     );
 
-    (channel as any).__IS_CLOSING = true;
     await new Promise(r => setTimeout(r, 60 * 1000));
     await channel.delete("closed by " + closer.toString());
     (channel as any).__IS_CLOSING = false;
