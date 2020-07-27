@@ -212,8 +212,10 @@ async function closeTicket(
     closer: discord.User | discord.PartialUser,
     inactivity: boolean = false
 ) {
+    if (channel.deleted) return;
+    if ((channel as any).__IS_CLOSING) return;
+
     let forinactive = inactivity ? " for inactivity" : "";
-    console.log(channel.topic);
     let creatorid = ((channel.topic || "").match(/<@!?([0-9]+?)>/) || [
         "",
         "ERNOID"
@@ -226,13 +228,21 @@ async function closeTicket(
             "⎯".repeat(30),
         msgopts
     );
+    // fetch last 1000 messages
+    // make html page
+    // save in #transcripts (735250062635958323)
+    // link in closed message below
+    // https://tickettool.xyz/direct?url=UPLOADEDFILELINK
     await ticketLog(
         creatorid,
         "Closed by " + closer.toString() + forinactive,
         "red"
     );
+
+    (channel as any).__IS_CLOSING = true;
     await new Promise(r => setTimeout(r, 60 * 1000));
     await channel.delete("closed by " + closer.toString());
+    (channel as any).__IS_CLOSING = false;
 }
 
 async function createTicket(creator: discord.User | discord.PartialUser) {
@@ -296,7 +306,10 @@ async function ticketLog(
         };
     logEmbed.color = colors[color];
     logEmbed.description = message;
-    await logsChannel.send("", logEmbed);
+    await logsChannel.send("<@" + actionerID + ">'s ticket", {
+        ...msgopts,
+        embed: logEmbed
+    });
 }
 
 client.on("messageReactionAdd", async (rxn, usr) => {
