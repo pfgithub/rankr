@@ -221,6 +221,43 @@ async function closeTicket(
     await channel.delete("closed by " + closer.toString());
 }
 
+async function createTicket(creator: discord.User | discord.PartialUser) {
+    let cat = (getChannel(
+        channelIDs.activeTicketsCategory
+    ) as any) as discord.CategoryChannel;
+    let ncperms: discord.OverwriteResolvable[] = cat.permissionOverwrites.array();
+    ncperms.push({ id: creator.id, allow: ["VIEW_CHANNEL"] });
+    let channelName = "ticket-" + creator.id;
+    let foundch = cat.guild.channels.cache.find(
+        ch => ch.name === channelName
+    ) as discord.TextChannel;
+    if (foundch) {
+        await foundch.send(
+            creator.toString() + ", Send your rank request proof here."
+        );
+        return;
+    }
+    let cre8tedchan = await cat.guild.channels.create(channelName, {
+        parent: cat,
+        permissionOverwrites: ncperms,
+        topic: "~ " + creator.toString() + "'s rank request"
+    });
+    let hedrmsg = await cre8tedchan.send(
+        creator.toString() +
+            ", Send your proof here. For more information on what ranks are available and what proof is need, check <#" +
+            channelIDs.ticketmakr +
+            ">."
+    );
+    await hedrmsg.react("🗑️");
+    setTimeout(async () => {
+        if (cre8tedchan.deleted) return;
+        if ((cre8tedchan.topic || "").startsWith("~")) {
+            await cre8tedchan.send("1 hour inactivity");
+            await closeTicket(cre8tedchan, creator);
+        }
+    }, 60 * 60 * 1000);
+}
+
 client.on("messageReactionAdd", async (rxn, usr) => {
     if (usr.bot) return;
     if (
@@ -239,43 +276,10 @@ client.on("messageReactionAdd", async (rxn, usr) => {
             return;
         }
         await rxn.users.remove(usr.id);
-        let cat = (getChannel(
-            channelIDs.activeTicketsCategory
-        ) as any) as discord.CategoryChannel;
-        let ncperms: discord.OverwriteResolvable[] = cat.permissionOverwrites.array();
-        ncperms.push({ id: usr.id, allow: ["VIEW_CHANNEL"] });
-        let channelName = "ticket-" + usr.id;
-        let foundch = cat.guild.channels.cache.find(
-            ch => ch.name === channelName
-        ) as discord.TextChannel;
-        if (foundch) {
-            await foundch.send(
-                usr.toString() + ", Send your rank request proof here."
-            );
-            return;
-        }
-        let cre8tedchan = await cat.guild.channels.create(channelName, {
-            parent: cat,
-            permissionOverwrites: ncperms,
-            topic: "~ " + usr.toString() + "'s rank request"
-        });
-        let hedrmsg = await cre8tedchan.send(
-            usr.toString() +
-                ", Send your proof here. For more information on what ranks are available and what proof is need, check <#" +
-                channelIDs.ticketmakr +
-                ">."
-        );
-        await hedrmsg.react("🗑️");
-        setTimeout(async () => {
-            if (cre8tedchan.deleted) return;
-            if ((cre8tedchan.topic || "").startsWith("~")) {
-                await cre8tedchan.send("1 hour inactivity");
-                await closeTicket(cre8tedchan, usr);
-            }
-        }, 60 * 60 * 1000);
+        await createTicket(usr);
         return;
     }
-    console.log(rxn, usr);
+    // console.log(rxn, usr);
 });
 
 // client.on("");
