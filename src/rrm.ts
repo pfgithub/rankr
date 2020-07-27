@@ -209,16 +209,28 @@ client.on("message", async msg => {
 
 async function closeTicket(
     channel: discord.TextChannel,
-    closer: discord.User | discord.PartialUser
+    closer: discord.User | discord.PartialUser,
+    inactivity: boolean = false
 ) {
+    let forinactive = inactivity ? " for inactivity" : "";
+    console.log(channel.topic);
+    let creatorid = ((channel.topic || "").match(/<@!?([0-9]+?)>/) || [
+        "",
+        "ERNOID"
+    ])[1];
     await channel.send(
         "Ticket closed by " +
             closer.toString() +
+            forinactive +
             ". This channel will be deleted in 60 seconds.\n" +
             "⎯".repeat(30),
         msgopts
     );
-    await ticketLog(closer, "Closed ticked", "red");
+    await ticketLog(
+        creatorid,
+        "Closed by " + closer.toString() + forinactive,
+        "red"
+    );
     await new Promise(r => setTimeout(r, 60 * 1000));
     await channel.delete("closed by " + closer.toString());
 }
@@ -255,29 +267,33 @@ async function createTicket(creator: discord.User | discord.PartialUser) {
         if (cre8tedchan.deleted) return;
         if ((cre8tedchan.topic || "").startsWith("~")) {
             await cre8tedchan.send("1 hour inactivity");
-            await closeTicket(cre8tedchan, creator);
+            await closeTicket(cre8tedchan, creator, true);
         }
     }, 60 * 60 * 1000);
 
-    await ticketLog(creator, "Created ticket", "green");
+    await ticketLog(creator.id, "Created ticket", "green");
 }
 
 const colors = { green: 3066993, red: 15158332 };
 
 async function ticketLog(
-    actioner_: discord.User | discord.PartialUser,
+    actionerID: string,
     message: string,
     color: keyof typeof colors
 ) {
-    if (actioner_.partial) await actioner_.fetch();
-    let actioner = actioner_ as discord.User;
+    let rylActioner = client.users.resolve(actionerID);
 
     let logsChannel = getChannel(channelIDs.ticketLogs);
     let logEmbed = new discord.MessageEmbed();
-    logEmbed.author = {
-        name: actioner.username + "#" + actioner.discriminator,
-        iconURL: actioner.displayAvatarURL({ dynamic: true, size: 32 })
-    };
+    if (rylActioner)
+        logEmbed.author = {
+            name: rylActioner.username + "#" + rylActioner.discriminator,
+            iconURL: rylActioner.displayAvatarURL({ dynamic: true, size: 32 })
+        };
+    else
+        logEmbed.author = {
+            name: "id: " + actionerID
+        };
     logEmbed.color = colors[color];
     logEmbed.description = message;
     await logsChannel.send("", logEmbed);
