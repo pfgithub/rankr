@@ -148,9 +148,10 @@ client.on("message", async msg => {
             return;
         }
         if (msg.content.includes("channellogtest")) {
+            let chanmatch = msg.content.match("<#&?([0-9]+?)>");
             await sendChannelLog(
                 "NOID",
-                msg.channel as any,
+                chanmatch ? getChannel(chanmatch[1]) : (msg.channel as any),
                 msg.channel as any
             );
             return;
@@ -299,15 +300,11 @@ const verifiedbotsvg = safehtml`
         <path d="M7.4,11.17,4,8.62,5,7.26l2,1.53L10.64,4l1.36,1Z" fill="currentColor"></path>
     </svg>`;
 
-/*
-
-    user?: (id: string) => string;
-    channel?: (id: string) => string;
-    role?: (id: string) => string;
-    emoji?: (animated: boolean, name: string, id: string) => string;
-    everyone?: () => string;
-    here?: () => string;
-*/
+function emojiHTML(animated: boolean, id: string, name: string) {
+    return safehtml`<img class="emoji"
+    src="https://cdn.discordapp.com/emojis/${id}.${animated ? "gif" : "png"}"
+    title=":${name}:" aria-label=":${name}:" alt=":${name}:" draggable="false">`;
+}
 
 function genLogOneMessage(msg: discord.Message) {
     let bottag = msg.author.bot
@@ -325,9 +322,7 @@ function genLogOneMessage(msg: discord.Message) {
                         "#" +
                         usrinfo.user.discriminator;
                     return safehtml`<span class="tag" data-id="${id}"
-                    title="${usrtag}">
-                        @${usrinfo.displayName}
-                    </span>`;
+                    title="${usrtag}">@${usrinfo.displayName}</span>`;
                 } else
                     return safehtml`<span class="tag">${"<@!" +
                         id +
@@ -345,33 +340,89 @@ function genLogOneMessage(msg: discord.Message) {
             role: ({ id }) => {
                 let roleinfo = msg.guild!.roles.resolve(id);
                 if (roleinfo) {
-                    let roleColor = roleinfo.hexColor;
-                    if (roleColor === "#000000") roleColor = "undefined as any";
-                    return safehtml`<span data-id="${id}" style="color: ${roleColor}">@${roleinfo.name}</span>`;
+                    let roleColor: string | undefined = roleinfo.hexColor;
+                    if (roleColor === "#000000") roleColor = undefined;
+                    let styletxt = "";
+                    if (roleColor)
+                        styletxt = `--fg-color: ${roleColor}; --bg-color: ${roleColor}1A; --hl-color: ${roleColor}4d`;
+                    return safehtml`<span data-id="${id}" class="tag"
+                    style="${styletxt}">@${roleinfo.name}</span>`;
                 } else
                     return safehtml`<span class="tag">${"<@&" +
                         id +
                         ">"}</span>`;
-            }
+            },
+            emoji: (animated, name, id) => emojiHTML(animated, name, id),
+            everyone: () => safehtml`<span class="tag">@everyone</span>`,
+            here: () => safehtml`<span class="tag">@here</span>`
         }
     });
+
+    let reactions: string[] = [];
+    for (let rxn of msg.reactions.cache.array()) {
+        const emojitxt = rxn.emoji.id
+            ? emojiHTML(rxn.emoji.animated, rxn.emoji.id, rxn.emoji.name)
+            : safehtml`${rxn.emoji.name}`;
+        reactions.push(safehtml`<div class="reaction"
+            ><div class="reactionemoji"
+            >${raw(emojitxt)}</div
+            ><div class="reactioncount"
+            >${"" + (rxn.count || "???")}</div
+        ></div>`);
+    }
+    let reactionsText = reactions.length ? "<br />" + reactions.join("") : "";
+
+    let embeds: string[] = [];
+    for (let embed of msg.embeds) {
+        let mbedtitle = embed.title
+            ? safehtml`<div class="embedtitle">${embed.title}</div>`
+            : "";
+        let mbedesc = embed.description
+            ? safehtml`<div class="embedtitle">${embed.description}</div>`
+            : "";
+        embeds.push(safehtml`<div class="embed" style="--mbed-colr: ${embed.hexColor ||
+            "unset"}"
+            >${raw(mbedtitle)}${raw(mbedesc)}</div
+        >`);
+    }
+    let embedsText = embeds.length ? "" + embeds.join("") : "";
+
+    let attachments: string[] = [];
+    for (let attachment of msg.attachments.array()) {
+        if (
+            attachment.name &&
+            (attachment.name.endsWith(".jpg") ||
+                attachment.name.endsWith(".png") ||
+                attachment.name.endsWith(".jpeg"))
+        ) {
+            attachments.push(
+                safehtml`<div><img src="${attachment.proxyURL}" class="sizimg" /></div>`
+            );
+            continue;
+        }
+        attachments.push(
+            safehtml`<div>[attachment] <a href="${
+                attachment.url
+            }">${attachment.name || "ATCHMNT"}</a></div>`
+        );
+    }
+    let attachmentsText = attachments.length ? attachments.join("") : "";
 
     let memberColor = msg.member!.displayHexColor;
     if (memberColor === "#000000") memberColor = "undefined as any";
     let authorign = msg.author.username + "#" + msg.author.discriminator;
     return {
-        top: safehtml`<div class="message">
-            <img class="profile" src="${msg.author.displayAvatarURL({
+        top: safehtml`<div class="message"
+            ><img class="profile" src="${msg.author.displayAvatarURL({
                 dynamic: true,
                 size: 64
-            })}" />
-            <div class="author" style="color: ${memberColor}"
+            })}"
+            /><div class="author" style="color: ${memberColor}"
             title="${authorign}" data-id="${msg.author.id}">
-                ${msg.member!.displayName} ${raw(bottag)}</div>
-            <div class="msgcontent">`,
-        center: msgContentSafe,
-        bottom: safehtml`</div>
-    </div>`
+                ${msg.member!.displayName} ${raw(bottag)}</div
+            ><div class="msgcontent">`,
+        center: msgContentSafe + embedsText + attachmentsText + reactionsText,
+        bottom: safehtml`</div></div>`
     };
 }
 
@@ -452,8 +503,7 @@ async function sendChannelLog(
     });
     sendTo.stopTyping();
     await logMsg.edit(
-        "https://tickettool.xyz/direct?url=" +
-            encodeURIComponent(logMsg.attachments.array()[0].url)
+        "https://pfg.pw/rankr/view?page=" + logMsg.attachments.array()[0].url
     );
 }
 
