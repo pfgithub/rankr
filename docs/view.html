@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
+	<!-- warning xss. luckily pfg.pw doesn't have anything on it that could be affected by xss. I think. hopefully. -->
 	<head>
 		<meta charset="utf-8">
 		<title></title>
@@ -8,7 +9,7 @@
 		Loading...
 		<script>
 			let urlParams = new URLSearchParams(window.location.search);
-			fetch("https://cors-anywhere.herokuapp.com/"+encodeURI(urlParams.page)).then((fr) => {
+			fetch("https://cors-anywhere.herokuapp.com/"+encodeURI(urlParams.get("page"))).then((fr) => {
 				fr.text().then(txt => {
 					document.write(txt);
 				});
