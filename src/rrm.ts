@@ -510,9 +510,10 @@ async function sendChannelLogMayError(
         ]
     });
     sendTo.stopTyping();
-    await logMsg.edit(
-        "https://pfg.pw/rankr/view?page=" + logMsg.attachments.array()[0].url
-    );
+    const atchurl =
+        "https://pfg.pw/rankr/view?page=" + logMsg.attachments.array()[0].url;
+    await logMsg.edit("<@" + ticketOwnerID + ">'s ticket: " + atchurl);
+    return atchurl;
 }
 async function sendChannelLog(
     ticketOwnerID: string,
@@ -520,13 +521,14 @@ async function sendChannelLog(
     sendTo: discord.TextChannel
 ) {
     try {
-        await sendChannelLogMayError(ticketOwnerID, channel, sendTo);
+        return await sendChannelLogMayError(ticketOwnerID, channel, sendTo);
     } catch (e_) {
         let e = e_ as Error;
         sendTo.stopTyping();
         await sendTo.send(
             ":x: Uh oh error\n```\n" + e.toString() + "\n" + e.stack + "\n```"
         );
+        return undefined;
     }
 }
 
@@ -550,16 +552,19 @@ async function closeTicket(
         msgopts
     );
 
-    await ticketLog(
-        ticketOwnerID(channel),
-        "Closed by " + closer.toString() + forinactive,
-        "red"
-    );
-
-    await sendChannelLog(
+    let chanLogUrl = await sendChannelLog(
         ticketOwnerID(channel),
         channel,
         getChannel(channelIDs.logfiles)
+    );
+
+    await ticketLog(
+        ticketOwnerID(channel),
+        "Closed by " +
+            closer.toString() +
+            forinactive +
+            (chanLogUrl ? "\n[View Log](" + chanLogUrl + ")" : ""),
+        "red"
     );
 
     await new Promise(r => setTimeout(r, 60 * 1000));
