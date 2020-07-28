@@ -546,8 +546,7 @@ async function closeTicket(
         "Ticket closed by " +
             closer.toString() +
             forinactive +
-            ". This channel will be deleted in 60 seconds.\n" +
-            "⎯".repeat(30),
+            ". This channel will be deleted in 60 seconds.",
         msgopts
     );
 
@@ -590,7 +589,9 @@ async function createTicket(creator: discord.User | discord.PartialUser) {
         topic: "~ " + creator.toString() + "'s rank request"
     });
     let hedrmsg = await cre8tedchan.send(
-        creator.toString() +
+        "⎯".repeat(30) +
+            "\n" +
+            creator.toString() +
             ", Send your proof here. For more information on what ranks are available and what proof is need, check <#" +
             channelIDs.ticketmakr +
             ">."
