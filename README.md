@@ -1,0 +1,1 @@
+Moved → https://interpunct.bot/ticket ←

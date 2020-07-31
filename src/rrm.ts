@@ -38,11 +38,11 @@ const client = new discord.Client({
 client.login(secret.token);
 
 const channelIDs = {
-    activeTicketsCategory: "735251571260260414",
-    transcripts: "735969996773261404",
-    ticketmakr: "735250354450464808",
-    ticketLogs: "735251434836197476",
-    logfiles: "735250062635958323"
+    activeTicketsCategory: "disabled_735251571260260414",
+    transcripts: "disabled_735969996773261404",
+    ticketmakr: "disabled_735250354450464808",
+    ticketLogs: "disabled_735251434836197476",
+    logfiles: "disabled_735250062635958323"
 };
 
 function getChannel(chid: string): discord.TextChannel {
@@ -499,7 +499,7 @@ async function sendChannelLogMayError(
         if (lmsg.author.partial) await lmsg.author.fetch();
         if (lmsg.member?.partial) await lmsg.author.fetch();
     }
-    let logtext = genLogMayError(lastMessages);
+    let logtext = genLog(lastMessages);
     let logMsg = await sendTo.send("<@" + ticketOwnerID + ">'s '", {
         ...msgopts,
         files: [
